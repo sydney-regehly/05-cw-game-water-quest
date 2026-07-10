@@ -1,35 +1,71 @@
-const board = document.querySelector("#board");
-const scoreEl = document.querySelector("#score");
-const bankScoreEl = document.querySelector("#bankScore");
-const matchesEl = document.querySelector("#matches");
-const penaltiesEl = document.querySelector("#penalties");
-const roundMessage = document.querySelector("#roundMessage");
-const crackStatus = document.querySelector("#crackStatus");
-const tankFill = document.querySelector("#tankFill");
-const impactPreview = document.querySelector("#impactPreview");
-const resetButton = document.querySelector("#resetButton");
-const winDialog = document.querySelector("#winDialog");
-const finalGallons = document.querySelector("#finalGallons");
-const impactSummary = document.querySelector("#impactSummary");
-const playAgainButton = document.querySelector("#playAgainButton");
-const closeDialogButton = document.querySelector("#closeDialogButton");
-const confettiLayer = document.querySelector("#confettiLayer");
-
-const CRACKED_TILE_PENALTY = 10;
-const TOTAL_PAIRS = 8;
-const SHOWER_GALLONS = 15.8;
-const FAMILY_BASIC_DAY_GALLONS = 66;
+const SHOWER_GALLONS = 18;
+const FAMILY_BASIC_DAY_GALLONS = 150;
+const CRACKED_TILE_PENALTY = 8;
 
 const WATER_TILES = [
-  { id: "drop", name: "Drop", gallons: 1, color: "#19b7d8", icon: "drop" },
-  { id: "cup", name: "Cup", gallons: 2, color: "#087f9b", icon: "cup" },
-  { id: "canteen", name: "Bottle", gallons: 5, color: "#2e8b57", icon: "bottle" },
-  { id: "faucet", name: "Tap", gallons: 8, color: "#6b7c93", icon: "faucet" },
-  { id: "bucket", name: "Bucket", gallons: 12, color: "#b85c38", icon: "bucket" },
-  { id: "jug", name: "Jug", gallons: 18, color: "#d9a900", icon: "jug" },
-  { id: "well", name: "Well", gallons: 25, color: "#111111", icon: "well" },
-  { id: "tank", name: "Tank", gallons: 35, color: "#ffc907", icon: "tank" }
+  { id: 1, name: "Drop", icon: "💧", gallons: 8 },
+  { id: 2, name: "Cup", icon: "🥤", gallons: 10 },
+  { id: 3, name: "Bottle", icon: "🧴", gallons: 12 },
+  { id: 4, name: "Drip", icon: "💦", gallons: 14 },
+  { id: 5, name: "Rain", icon: "🌧️", gallons: 16 },
+  { id: 6, name: "Tap", icon: "🚰", gallons: 18 },
+  { id: 7, name: "Bucket", icon: "🪣", gallons: 20 },
+  { id: 8, name: "Spring", icon: "🌿", gallons: 22 },
+  { id: 9, name: "Well", icon: "⛲", gallons: 24 },
+  { id: 10, name: "River", icon: "🌊", gallons: 26 },
+  { id: 11, name: "Gallon", icon: "🫙", gallons: 30 },
+  { id: 12, name: "Tank", icon: "🛢️", gallons: 35 }
 ];
+
+const TOTAL_PAIRS = WATER_TILES.length;
+const GOAL_GALLONS = WATER_TILES.reduce((total, tile) => total + tile.gallons * 2, 0);
+const LAYOUT_TILE_WIDTH = 16;
+const LAYOUT_TILE_HEIGHT = 20;
+
+const MAHJONG_LAYOUT = [
+  { x: "4%", y: "5%", layer: 0 },
+  { x: "18%", y: "5%", layer: 1 },
+  { x: "32%", y: "5%", layer: 0 },
+  { x: "46%", y: "5%", layer: 1 },
+  { x: "60%", y: "5%", layer: 0 },
+  { x: "74%", y: "5%", layer: 1 },
+  { x: "10%", y: "26%", layer: 1 },
+  { x: "24%", y: "26%", layer: 0 },
+  { x: "38%", y: "26%", layer: 1 },
+  { x: "52%", y: "26%", layer: 0 },
+  { x: "66%", y: "26%", layer: 1 },
+  { x: "80%", y: "26%", layer: 0 },
+  { x: "4%", y: "47%", layer: 0 },
+  { x: "18%", y: "47%", layer: 1 },
+  { x: "32%", y: "47%", layer: 0 },
+  { x: "46%", y: "47%", layer: 1 },
+  { x: "60%", y: "47%", layer: 0 },
+  { x: "74%", y: "47%", layer: 1 },
+  { x: "10%", y: "68%", layer: 1 },
+  { x: "24%", y: "68%", layer: 0 },
+  { x: "38%", y: "68%", layer: 1 },
+  { x: "52%", y: "68%", layer: 0 },
+  { x: "66%", y: "68%", layer: 1 },
+  { x: "80%", y: "68%", layer: 0 }
+];
+
+const scoreEl = document.getElementById("score");
+const matchesEl = document.getElementById("matches");
+const penaltiesEl = document.getElementById("penalties");
+const timerEl = document.getElementById("timer");
+const bankScoreEl = document.getElementById("bankScore");
+const roundMessage = document.getElementById("roundMessage");
+const crackStatus = document.getElementById("crackStatus");
+const impactPreview = document.getElementById("impactPreview");
+const tankFill = document.getElementById("tankFill");
+const finalGallons = document.getElementById("finalGallons");
+const impactSummary = document.getElementById("impactSummary");
+const winDialog = document.getElementById("winDialog");
+const resetButton = document.getElementById("resetButton");
+const playAgainButton = document.getElementById("playAgainButton");
+const closeDialogButton = document.getElementById("closeDialogButton");
+const board = document.getElementById("board");
+const confettiLayer = document.getElementById("confettiLayer");
 
 let tiles = [];
 let selectedTiles = [];
@@ -37,64 +73,391 @@ let score = 0;
 let matchedPairs = 0;
 let crackedMatches = 0;
 let inputLocked = false;
+let elapsedSeconds = 0;
+let timerIntervalId = null;
 
-function shuffle(items) {
-  return [...items].sort(() => Math.random() - 0.5);
+function shuffleArray(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
+  }
+  return copy;
 }
 
 function createTiles() {
-  const paired = WATER_TILES.flatMap((tile) => [
-    { ...tile, uid: `${tile.id}-a`, cracked: false, matched: false },
-    { ...tile, uid: `${tile.id}-b`, cracked: false, matched: false }
+  const pairedTiles = WATER_TILES.flatMap((tile) => [
+    { ...tile, uid: `${tile.id}-a`, matched: false, cracked: false },
+    { ...tile, uid: `${tile.id}-b`, matched: false, cracked: false }
   ]);
 
-  const shuffled = shuffle(paired);
-  const crackedIndex = Math.floor(Math.random() * shuffled.length);
-  shuffled[crackedIndex].cracked = true;
-  return shuffled;
+  let newTiles = [];
+
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const shuffledTiles = shuffleArray(pairedTiles).map((tile) => ({
+      ...tile,
+      cracked: false
+    }));
+    const crackedIndex = Math.floor(Math.random() * shuffledTiles.length);
+    shuffledTiles[crackedIndex].cracked = true;
+
+    newTiles = shuffledTiles.map((tile, index) => ({
+      ...tile,
+      layout: MAHJONG_LAYOUT[index],
+      revealed: false
+    }));
+
+    updateTileAvailability(newTiles);
+
+    if (canMakeMatch(newTiles)) {
+      return newTiles;
+    }
+  }
+
+  updateTileAvailability(newTiles);
+  return newTiles;
 }
 
-function iconSvg(tile) {
-  const c = tile.color;
-  const stroke = tile.id === "tank" ? "#111111" : c;
+function parsePercent(value) {
+  return Number.parseFloat(value.replace("%", ""));
+}
 
-  const icons = {
-    drop: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M40 8C30 23 19 37 19 51a21 21 0 0 0 42 0C61 37 50 23 40 8Z" fill="${c}" stroke="#111" stroke-width="4"/><circle cx="32" cy="48" r="5" fill="#fff" opacity=".75"/></svg>`,
-    cup: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M23 17h34l-5 46H28L23 17Z" fill="#fff" stroke="#111" stroke-width="4"/><path d="M28 39h24l-3 20H31l-3-20Z" fill="${c}"/><path d="M56 29h9a8 8 0 0 1 0 16h-7" fill="none" stroke="#111" stroke-width="4"/></svg>`,
-    bottle: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M32 9h16v14l7 9v35a5 5 0 0 1-5 5H30a5 5 0 0 1-5-5V32l7-9V9Z" fill="#fff" stroke="#111" stroke-width="4"/><path d="M29 42h22v22H29z" fill="${c}"/><path d="M32 9h16" stroke="#111" stroke-width="7" stroke-linecap="round"/></svg>`,
-    faucet: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M16 30h30a12 12 0 0 1 12 12v5" fill="none" stroke="${stroke}" stroke-width="9" stroke-linecap="round"/><path d="M23 21h23" stroke="#111" stroke-width="7" stroke-linecap="round"/><path d="M58 49c-6 8-8 12-8 16a8 8 0 0 0 16 0c0-4-2-8-8-16Z" fill="#19b7d8" stroke="#111" stroke-width="3"/></svg>`,
-    bucket: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M23 30h34l-5 38H28l-5-38Z" fill="${c}" stroke="#111" stroke-width="4"/><path d="M24 31c1-13 31-13 32 0" fill="none" stroke="#111" stroke-width="4"/><path d="M29 42h22" stroke="#fff" stroke-width="4" opacity=".65"/></svg>`,
-    jug: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M27 14h24v13l8 8v28a7 7 0 0 1-7 7H28a7 7 0 0 1-7-7V35l6-8V14Z" fill="${c}" stroke="#111" stroke-width="4"/><path d="M51 36h5a10 10 0 0 1 0 20h-5" fill="none" stroke="#111" stroke-width="4"/><path d="M31 14h16" stroke="#111" stroke-width="7" stroke-linecap="round"/><path d="M30 42h14v20H30z" fill="#fff" opacity=".7"/></svg>`,
-    well: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M20 35h40v32H20z" fill="#fff" stroke="#111" stroke-width="4"/><path d="M16 35h48L56 19H24l-8 16Z" fill="${c}" stroke="#111" stroke-width="4"/><path d="M29 49h22v18H29z" fill="#19b7d8"/><path d="M20 47h40M20 58h40" stroke="#111" stroke-width="3"/></svg>`,
-    tank: `<svg viewBox="0 0 80 80" aria-hidden="true"><path d="M18 20h44v46H18z" fill="${c}" stroke="#111" stroke-width="4"/><path d="M18 29h44M18 45h44M18 61h44" stroke="#111" stroke-width="3"/><path d="M28 13h24v7H28z" fill="#111"/><path d="M30 37h20v18H30z" fill="#19b7d8"/></svg>`
+function getTileBounds(tile) {
+  const x = parsePercent(tile.layout.x);
+  const y = parsePercent(tile.layout.y);
+
+  return {
+    left: x,
+    right: x + LAYOUT_TILE_WIDTH,
+    top: y,
+    bottom: y + LAYOUT_TILE_HEIGHT
   };
-
-  return icons[tile.icon];
 }
 
-function crackSvg() {
-  return `<span class="crack-mark" aria-label="Cracked tile"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M29 3 16 22h10L18 45l16-27H23L29 3Z" fill="#c9362c" stroke="#111" stroke-width="3" stroke-linejoin="round"/></svg></span>`;
+function rectanglesOverlap(first, second) {
+  return (
+    first.left < second.right &&
+    first.right > second.left &&
+    first.top < second.bottom &&
+    first.bottom > second.top
+  );
+}
+
+function isCoveredByHigherTile(tile, tileList = tiles) {
+  if (tile.matched) return false;
+
+  const tileBounds = getTileBounds(tile);
+  return tileList.some((otherTile) => {
+    if (otherTile.uid === tile.uid || otherTile.matched) return false;
+    if (otherTile.layout.layer <= tile.layout.layer) return false;
+    return rectanglesOverlap(tileBounds, getTileBounds(otherTile));
+  });
+}
+
+function updateTileAvailability(tileList = tiles) {
+  tileList.forEach((tile) => {
+    tile.revealed = !tile.matched && !isCoveredByHigherTile(tile, tileList);
+  });
+}
+
+function isSurfaceTile(tile) {
+  return tile.revealed && !tile.matched;
+}
+
+function chooseTile(uid) {
+  if (inputLocked) return;
+
+  const tile = tiles.find((item) => item.uid === uid);
+  if (!tile || tile.matched || selectedTiles.some((selected) => selected.uid === uid)) {
+    return;
+  }
+
+  if (!isSurfaceTile(tile)) {
+    flashBlockedTile(uid);
+    roundMessage.textContent = "That tile is still covered. Clear the tile above it first.";
+    return;
+  }
+
+  selectedTiles.push(tile);
+  syncTileClasses();
+
+  if (selectedTiles.length === 2) {
+    inputLocked = true;
+    setTimeout(resolveSelection, 320);
+  }
+}
+
+function resolveSelection() {
+  const [first, second] = selectedTiles;
+
+  if (first.id === second.id) {
+    first.matched = true;
+    second.matched = true;
+    matchedPairs += 1;
+
+    const baseScore = first.gallons * 2;
+    const crackedUsed = first.cracked || second.cracked;
+    const penalty = crackedUsed ? CRACKED_TILE_PENALTY : 0;
+    score = Math.max(0, score + baseScore - penalty);
+
+    if (crackedUsed) {
+      crackedMatches += 1;
+      roundMessage.textContent = `${first.name} cleared, but the cracked tile spilled ${penalty} gallons.`;
+      crackStatus.textContent = "Cracked tile used";
+    } else {
+      roundMessage.textContent = `${first.name} pair collected ${baseScore} gallons.`;
+    }
+  } else {
+    flashMismatch(first.uid, second.uid);
+    roundMessage.textContent = "Those water symbols do not match.";
+  }
+
+  selectedTiles = [];
+  updateTileAvailability();
+  syncTileClasses();
+  updateStats();
+  inputLocked = false;
+
+  if (matchedPairs === TOTAL_PAIRS) {
+    setTimeout(showWin, 360);
+  } else if (!canMakeMatch()) {
+    setTimeout(reshuffleRemainingTiles, 320);
+  }
+}
+
+function canMakeMatch(tileList = tiles) {
+  const playableTiles = tileList.filter((tile) => isSurfaceTile(tile));
+
+  for (let index = 0; index < playableTiles.length; index += 1) {
+    for (let nextIndex = index + 1; nextIndex < playableTiles.length; nextIndex += 1) {
+      if (playableTiles[index].id === playableTiles[nextIndex].id) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function reshuffleRemainingTiles() {
+  const remainingTiles = tiles.filter((tile) => !tile.matched);
+  const values = remainingTiles.map((tile) => ({
+    id: tile.id,
+    name: tile.name,
+    icon: tile.icon,
+    gallons: tile.gallons,
+    cracked: tile.cracked
+  }));
+
+  const pairValue = values.find((value, index) => {
+    return values.some((otherValue, otherIndex) => {
+      return otherIndex !== index && otherValue.id === value.id;
+    });
+  });
+
+  if (!pairValue) {
+    updateTileAvailability();
+    syncTileClasses();
+    return;
+  }
+
+  const pairedValues = values.filter((value) => value.id === pairValue.id).slice(0, 2);
+  const restValues = values.filter((value) => value.id !== pairValue.id || pairedValues.includes(value) === false);
+  const shuffledRest = shuffleArray(restValues);
+  const candidateTiles = tiles.map((tile) => ({ ...tile }));
+  updateTileAvailability(candidateTiles);
+
+  const playableSlots = candidateTiles.filter((tile) => !tile.matched && tile.revealed);
+
+  if (playableSlots.length < 2) {
+    updateTileAvailability();
+    syncTileClasses();
+    return;
+  }
+
+  playableSlots.slice(0, 2).forEach((tile, index) => {
+    Object.assign(tile, pairedValues[index]);
+  });
+
+  candidateTiles
+    .filter((tile) => !tile.matched && !playableSlots.slice(0, 2).some((slot) => slot.uid === tile.uid))
+    .forEach((tile) => {
+      const value = shuffledRest.shift();
+      if (value) Object.assign(tile, value);
+    });
+
+  updateTileAvailability(candidateTiles);
+  tiles = candidateTiles;
+  selectedTiles = [];
+  renderBoard();
+  roundMessage.textContent = "No available pairs were left, so the remaining tiles were shuffled.";
+}
+
+function flashMismatch(firstUid, secondUid) {
+  [firstUid, secondUid].forEach((uid) => {
+    const tileEl = board.querySelector(`[data-uid="${uid}"]`);
+    if (!tileEl) return;
+    tileEl.classList.add("mismatch");
+    setTimeout(() => tileEl.classList.remove("mismatch"), 300);
+  });
+}
+
+function flashBlockedTile(uid) {
+  const tileEl = board.querySelector(`[data-uid="${uid}"]`);
+  if (!tileEl) return;
+  tileEl.classList.add("blocked");
+  setTimeout(() => tileEl.classList.remove("blocked"), 320);
+}
+
+function syncTileClasses() {
+  tiles.forEach((tile) => {
+    const tileEl = board.querySelector(`[data-uid="${tile.uid}"]`);
+    if (!tileEl) return;
+    tileEl.classList.toggle("selected", selectedTiles.some((selected) => selected.uid === tile.uid));
+    tileEl.classList.toggle("matched", tile.matched);
+    tileEl.classList.toggle("revealed", isSurfaceTile(tile));
+    tileEl.classList.toggle("covered", !tile.matched && !isSurfaceTile(tile));
+    tileEl.classList.toggle("cracked-tile", tile.cracked);
+    tileEl.setAttribute("aria-disabled", String(!tile.matched && !isSurfaceTile(tile)));
+    tileEl.disabled = tile.matched;
+  });
+}
+
+function updateStats() {
+  scoreEl.textContent = score;
+  bankScoreEl.textContent = score;
+  matchesEl.textContent = `${matchedPairs}/${TOTAL_PAIRS}`;
+  penaltiesEl.textContent = crackedMatches;
+  tankFill.style.height = `${Math.min(100, Math.round((score / GOAL_GALLONS) * 100))}%`;
+
+  const showerCount = score / SHOWER_GALLONS;
+  const familyDays = score / FAMILY_BASIC_DAY_GALLONS;
+  impactPreview.textContent = `${score} gallons is about ${formatNumber(showerCount)} average showers or ${formatNumber(familyDays)} family basic-water days.`;
+}
+
+function formatTime(value) {
+  const minutes = Math.floor(value / 60);
+  const seconds = value % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function updateTimerDisplay() {
+  if (timerEl) {
+    timerEl.textContent = formatTime(elapsedSeconds);
+  }
+}
+
+function startTimer() {
+  stopTimer();
+  elapsedSeconds = 0;
+  updateTimerDisplay();
+  timerIntervalId = window.setInterval(() => {
+    elapsedSeconds += 1;
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerIntervalId !== null) {
+    window.clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+}
+
+function formatNumber(value) {
+  if (value < 1 && value > 0) return value.toFixed(2);
+  if (value < 10) return value.toFixed(1);
+  return Math.round(value).toString();
 }
 
 function renderBoard() {
   board.innerHTML = "";
+  const fragment = document.createDocumentFragment();
 
   tiles.forEach((tile) => {
     const button = document.createElement("button");
-    button.className = "tile";
     button.type = "button";
+    button.className = `tile layer-${tile.layout.layer}`;
     button.dataset.uid = tile.uid;
     button.dataset.tileId = tile.id;
+    button.style.setProperty("--x", tile.layout.x);
+    button.style.setProperty("--y", tile.layout.y);
+    button.style.setProperty("--z", tile.layout.layer * 50 + tiles.indexOf(tile));
     button.setAttribute("aria-label", `${tile.name}, ${tile.gallons} gallons`);
     button.innerHTML = `
-      ${tile.cracked ? crackSvg() : ""}
-      <span class="tile-icon">${iconSvg(tile)}</span>
+      ${tile.cracked ? `
+        <span class="crack-lines" aria-hidden="true"></span>
+        <span class="crack-mark" aria-label="Cracked tile">CRACKED</span>
+      ` : ""}
+      <span class="tile-icon" aria-hidden="true">${tile.icon}</span>
       <span class="tile-name">
         <span>${tile.name}</span>
-        <span class="tile-gallons">${tile.gallons}g</span>
+        <span class="tile-gallons">${tile.gallons} gal</span>
       </span>
     `;
     button.addEventListener("click", () => chooseTile(tile.uid));
-    board.appendChild(button);
+    fragment.appendChild(button);
   });
+
+  board.appendChild(fragment);
+  syncTileClasses();
 }
+
+function launchConfetti() {
+  const colors = ["#ffc907", "#19b7d8", "#ffffff", "#111111", "#2e8b57", "#c9362c"];
+  confettiLayer.innerHTML = "";
+
+  for (let i = 0; i < 110; i += 1) {
+    const piece = document.createElement("span");
+    piece.className = "confetti-piece";
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.setProperty("--drift", `${Math.random() * 220 - 110}px`);
+    piece.style.animationDelay = `${Math.random() * 420}ms`;
+    piece.style.transform = `rotate(${Math.random() * 180}deg)`;
+    confettiLayer.appendChild(piece);
+  }
+
+  setTimeout(() => {
+    confettiLayer.innerHTML = "";
+  }, 1900);
+}
+
+function showWin() {
+  stopTimer();
+  finalGallons.textContent = score;
+  const showers = formatNumber(score / SHOWER_GALLONS);
+  const familyDays = formatNumber(score / FAMILY_BASIC_DAY_GALLONS);
+  impactSummary.textContent = `${score} gallons is roughly ${showers} average showers, or ${familyDays} days of basic water for a five-person family using a 50-liter-per-person daily benchmark.`;
+  launchConfetti();
+
+  if (typeof winDialog.showModal === "function") {
+    winDialog.showModal();
+  } else {
+    alert(`You collected ${score} gallons.`);
+  }
+}
+
+function resetGame() {
+  tiles = createTiles();
+  selectedTiles = [];
+  score = 0;
+  matchedPairs = 0;
+  crackedMatches = 0;
+  inputLocked = false;
+  roundMessage.textContent = "Match water pairs to fill the campus tank.";
+  crackStatus.textContent = `Cracked tile: red badge, -${CRACKED_TILE_PENALTY} gal`;
+  renderBoard();
+  updateStats();
+  startTimer();
+
+  if (winDialog.open) {
+    winDialog.close();
+  }
+}
+
+resetButton.addEventListener("click", resetGame);
+playAgainButton.addEventListener("click", resetGame);
+closeDialogButton.addEventListener("click", () => winDialog.close());
+
+resetGame();

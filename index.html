@@ -1,23 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>Water Quest</title>
-  <link href="style.css" rel="stylesheet" type="text/css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Water Match | charity: water Mahjong Prototype</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Water Quest</h1>
-    <p class="game-instructions">Collect 20 items to complete the game!</p>
-    <div class="stats">
-      <p>Cans Collected: <span id="current-cans">0</span></p>
-      <p>Time Left: <span id="timer">30</span>s</p>
+  <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="https://www.charitywater.org/" target="_blank" rel="noreferrer" aria-label="charity: water website">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 46 46" role="img">
+            <path d="M13 12h20l3 28H10l3-28Z" fill="#ffc907"></path>
+            <path d="M17 7h12a4 4 0 0 1 4 4v3H13v-3a4 4 0 0 1 4-4Z" fill="#111"></path>
+            <path d="M18 21h10v14H18z" fill="#fff7d1"></path>
+          </svg>
+        </span>
+        <span class="brand-text">charity: water</span>
+      </a>
+
+      <section class="stats" aria-label="Game statistics">
+        <div class="stat">
+          <span class="stat-value" id="score">0</span>
+          <span class="stat-label">gallons</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="matches">0/8</span>
+          <span class="stat-label">matched</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value penalty" id="penalties">0</span>
+          <span class="stat-label">cracks</span>
+        </div>
+      </section>
+    </header>
+
+    <section class="hero-band" aria-labelledby="gameTitle">
+      <div>
+        <p class="eyebrow">Campus Water Match</p>
+        <h1 id="gameTitle">Clear the board. Collect clean water.</h1>
+      </div>
+      <button class="reset-button" id="resetButton" type="button">
+        <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.6V3h-5.6l2 2A9.9 9.9 0 0 0 2 12h2Zm16 0a8 8 0 0 1-13.7 5.7L4 15.4V21h5.6l-2-2A9.9 9.9 0 0 0 22 12h-2Z"></path>
+        </svg>
+        Reset
+      </button>
+    </section>
+
+    <section class="game-layout">
+      <section class="board-wrap" aria-label="Mahjong matching board">
+        <div class="status-row">
+          <p id="roundMessage" aria-live="polite">Match water pairs to fill the campus tank.</p>
+          <span id="crackStatus">Cracked tile hidden</span>
+        </div>
+        <div class="board" id="board"></div>
+      </section>
+
+      <aside class="impact-panel" aria-label="Impact details">
+        <div class="tank">
+          <div class="tank-fill" id="tankFill"></div>
+          <div class="tank-lines" aria-hidden="true"></div>
+        </div>
+        <div class="impact-copy">
+          <p class="panel-label">Water bank</p>
+          <p class="panel-number"><span id="bankScore">0</span> gal</p>
+          <p id="impactPreview">Every match turns a water icon into gallons collected.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <dialog class="win-dialog" id="winDialog" aria-labelledby="winTitle">
+    <div class="dialog-body">
+      <p class="eyebrow">Board cleared</p>
+      <h2 id="winTitle">You collected <span id="finalGallons">0</span> gallons.</h2>
+      <p id="impactSummary"></p>
+      <div class="dialog-actions">
+        <button class="primary-button" id="playAgainButton" type="button">Play again</button>
+        <button class="ghost-button" id="closeDialogButton" type="button">Close</button>
+      </div>
     </div>
-    <div id="achievements" class="achievement"></div>
-    <div class="game-grid"></div>
-    <button id="start-game">Start Game</button>
-  </div>
+  </dialog>
+
   <script src="script.js"></script>
 </body>
 </html>
